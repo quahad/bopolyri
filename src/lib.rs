@@ -1,3 +1,4 @@
+#![feature(map_first_last)]
 pub mod mon;
 pub mod order;
 pub mod poly;

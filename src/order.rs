@@ -1,8 +1,7 @@
 use crate::mon::Monomial;
-use compare::Compare;
 use std::cmp::Ordering;
-pub trait MonomialOrdering<'a>: Compare<Monomial<'a>> + Clone + Copy {
-    fn cmp(&self, a: &Monomial, b: &Monomial) -> Ordering;
+pub trait MonomialOrdering: Clone + Copy {
+    fn cmp(a: &Monomial<Self>, b: &Monomial<Self>) -> Ordering;
 }
 
 #[derive(Clone, Copy)]
@@ -14,23 +13,23 @@ pub struct DegLex;
 #[derive(Clone, Copy)]
 pub struct Lex;
 
-impl<'a> Compare<Monomial<'a>> for DegRevLex {
-    fn compare(&self, l: &Monomial<'a>, r: &Monomial<'a>) -> Ordering {
-        self.cmp(l, r)
-    }
-}
+// impl<'a> Compare<Monomial<'a>> for DegRevLex {
+//     fn compare(&self, l: &Monomial<'a>, r: &Monomial<'a>) -> Ordering {
+//         self.cmp(l, r)
+//     }
+// }
 
-impl<'a> MonomialOrdering<'a> for DegRevLex {
-    fn cmp(&self, a: &Monomial, b: &Monomial) -> Ordering {
+impl<'a> MonomialOrdering for DegRevLex {
+    fn cmp(a: &Monomial<Self>, b: &Monomial<Self>) -> Ordering {
         match (a, b) {
             (Monomial::Zero, Monomial::Zero) => Ordering::Equal,
             (Monomial::Zero, _) => Ordering::Less,
             (_, Monomial::Zero) => Ordering::Greater,
-            (Monomial::NonZero(vars_a), Monomial::NonZero(vars_b)) => {
+            (Monomial::NonZero { vars: vars_a, .. }, Monomial::NonZero { vars: vars_b, .. }) => {
                 match vars_a.len().cmp(&vars_b.len()) {
                     Ordering::Equal => {
-                        let mut z = vars_a.iter().rev().zip(vars_b.iter().rev());
-                        while let Some((v_a, v_b)) = z.next() {
+                        let z = vars_a.iter().rev().zip(vars_b.iter().rev());
+                        for (v_a, v_b) in z {
                             match v_b.cmp(v_a) {
                                 Ordering::Equal => {}
                                 order => return order,
@@ -45,23 +44,23 @@ impl<'a> MonomialOrdering<'a> for DegRevLex {
     }
 }
 
-impl<'a> Compare<Monomial<'a>> for DegLex {
-    fn compare(&self, l: &Monomial<'a>, r: &Monomial<'a>) -> Ordering {
-        self.cmp(l, r)
-    }
-}
+// impl<'a> Compare<Monomial<'a>> for DegLex {
+//     fn compare(&self, l: &Monomial<'a>, r: &Monomial<'a>) -> Ordering {
+//         self.cmp(l, r)
+//     }
+// }
 
-impl<'a> MonomialOrdering<'a> for DegLex {
-    fn cmp(&self, a: &Monomial, b: &Monomial) -> Ordering {
+impl<'a> MonomialOrdering for DegLex {
+    fn cmp(a: &Monomial<Self>, b: &Monomial<Self>) -> Ordering {
         match (a, b) {
             (Monomial::Zero, Monomial::Zero) => Ordering::Equal,
             (Monomial::Zero, _) => Ordering::Less,
             (_, Monomial::Zero) => Ordering::Greater,
-            (Monomial::NonZero(vars_a), Monomial::NonZero(vars_b)) => {
+            (Monomial::NonZero { vars: vars_a, .. }, Monomial::NonZero { vars: vars_b, .. }) => {
                 match vars_a.len().cmp(&vars_b.len()) {
                     Ordering::Equal => {
-                        let mut z = vars_a.iter().zip(vars_b.iter());
-                        while let Some((v_a, v_b)) = z.next() {
+                        let z = vars_a.iter().zip(vars_b.iter());
+                        for (v_a, v_b) in z {
                             match v_b.cmp(v_a) {
                                 Ordering::Equal => {}
                                 order => return order,
@@ -76,26 +75,26 @@ impl<'a> MonomialOrdering<'a> for DegLex {
     }
 }
 
-impl<'a> Compare<Monomial<'a>> for Lex {
-    fn compare(&self, l: &Monomial<'a>, r: &Monomial<'a>) -> Ordering {
-        self.cmp(l, r)
-    }
-}
+// impl<'a> Compare<Monomial<'a>> for Lex {
+//     fn compare(&self, l: &Monomial<'a>, r: &Monomial<'a>) -> Ordering {
+//         self.cmp(l, r)
+//     }
+// }
 
-impl<'a> MonomialOrdering<'a> for Lex {
-    fn cmp(&self, a: &Monomial, b: &Monomial) -> Ordering {
+impl<'a> MonomialOrdering for Lex {
+    fn cmp(a: &Monomial<Self>, b: &Monomial<Self>) -> Ordering {
         match (a, b) {
             (Monomial::Zero, Monomial::Zero) => Ordering::Equal,
             (Monomial::Zero, _) => Ordering::Less,
             (_, Monomial::Zero) => Ordering::Greater,
-            (Monomial::NonZero(vars_a), Monomial::NonZero(vars_b)) => {
+            (Monomial::NonZero { vars: vars_a, .. }, Monomial::NonZero { vars: vars_b, .. }) => {
                 match (vars_a.len(), vars_b.len()) {
                     (0, 0) => Ordering::Equal,
                     (0, _) => Ordering::Less,
                     (_, 0) => Ordering::Greater,
                     _ => {
-                        let mut z = vars_a.iter().zip(vars_b.iter());
-                        while let Some((v_a, v_b)) = z.next() {
+                        let z = vars_a.iter().zip(vars_b.iter());
+                        for (v_a, v_b) in z {
                             match v_b.cmp(v_a) {
                                 Ordering::Equal => {}
                                 order => return order,
@@ -113,12 +112,9 @@ mod tests {
     use super::{DegLex, DegRevLex, Lex, MonomialOrdering};
     use crate::poly::Polynomial;
     use crate::{mon::Monomial, ring::Ring};
-    fn test_poly<'a, O: MonomialOrdering<'a>>(
-        ring: &'a Ring<'a, O>,
-        ordering: O,
-    ) -> Polynomial<'a, O> {
+    fn test_poly<'a, O: MonomialOrdering>(ring: &'a Ring<'a>) -> Polynomial<'a, O> {
         let x: Vec<_> = (0..4)
-            .map(|i| Polynomial::from_variable(ring.var(i), ordering))
+            .map(|i| Polynomial::from_variable(ring.var(i)))
             .collect();
         let x = x.iter().collect::<Vec<_>>();
         let mut p = x[0] * x[1] * x[2]
