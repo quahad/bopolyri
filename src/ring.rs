@@ -2,12 +2,12 @@ use std::marker::PhantomData;
 
 use crate::var::Variable;
 use crate::{order::MonomialOrdering, var::AssociatedVariableType};
-pub struct Ring<'a> {
+pub struct Ring<T: MonomialOrdering> {
     vars: Vec<Variable>,
-    _marker: PhantomData<&'a ()>,
+    order: PhantomData<T>,
 }
 
-impl<'a> Ring<'a> {
+impl<T: MonomialOrdering> Ring<T> {
     pub fn new(n: usize) -> Self {
         let mut vars = Vec::with_capacity(n);
         for i in 0..n {
@@ -15,7 +15,7 @@ impl<'a> Ring<'a> {
         }
         Ring {
             vars,
-            _marker: PhantomData,
+            order: PhantomData,
         }
     }
     pub fn set_variable_name<S: ToString>(&mut self, name: S, order: usize) {
@@ -28,5 +28,9 @@ impl<'a> Ring<'a> {
 
     pub fn var(&self, n: usize) -> &Variable {
         &self.vars[n]
+    }
+
+    pub fn len(&self) ->usize{
+        self.vars.len()
     }
 }

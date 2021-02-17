@@ -36,6 +36,9 @@ impl Variable {
     pub fn associated_type(&self) -> AssociatedVariableType {
         self.associated_type
     }
+    pub fn order(&self) -> u32 {
+        self.order as u32
+    }
 }
 impl PartialOrd for Variable {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {

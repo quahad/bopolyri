@@ -112,9 +112,9 @@ mod tests {
     use super::{DegLex, DegRevLex, Lex, MonomialOrdering};
     use crate::poly::Polynomial;
     use crate::{mon::Monomial, ring::Ring};
-    fn test_poly<'a, O: MonomialOrdering>(ring: &'a Ring<'a>) -> Polynomial<'a, O> {
+    fn test_poly<'a, O: MonomialOrdering>(ring: &'a Ring<O>) -> Polynomial<'a, O> {
         let x: Vec<_> = (0..4)
-            .map(|i| Polynomial::from_variable(ring.var(i)))
+            .map(|i| Polynomial::from_variable(ring, ring.var(i)))
             .collect();
         let x = x.iter().collect::<Vec<_>>();
         let mut p = x[0] * x[1] * x[2]
@@ -131,8 +131,8 @@ mod tests {
     #[test]
     fn lex_order() {
         let ordering = Lex;
-        let ring = Ring::new(4, ordering);
-        let p = test_poly(&ring, ordering);
+        let ring = Ring::<Lex>::new(4);
+        let p = test_poly(&ring);
         assert_eq!(
             "x_0*x_1*x_2 + x_0*x_2 + x_0 + x_1*x_2*x_3 + x_1*x_3 + x_2 + x_3",
             p.to_string()
@@ -141,8 +141,8 @@ mod tests {
     #[test]
     fn degrevlex_order() {
         let ordering = DegRevLex;
-        let ring = Ring::new(4, ordering);
-        let p = test_poly(&ring, ordering);
+        let ring = Ring::<DegRevLex>::new(4);
+        let p = test_poly(&ring);
         assert_eq!(
             "x_2*x_1*x_0 + x_3*x_2*x_1 + x_2*x_0 + x_3*x_1 + x_0 + x_2 + x_3",
             p.to_string()
@@ -152,8 +152,8 @@ mod tests {
     #[test]
     fn deglex_order() {
         let ordering = DegLex;
-        let ring = Ring::new(4, ordering);
-        let p = test_poly(&ring, ordering);
+        let ring = Ring::<DegLex>::new(4);
+        let p = test_poly(&ring);
         assert_eq!(
             "x_0*x_1*x_2 + x_1*x_2*x_3 + x_0*x_2 + x_1*x_3 + x_0 + x_2 + x_3",
             p.to_string()
