@@ -1,4 +1,9 @@
-use crate::{mon::Monomial, order::MonomialOrdering, ring::Ring, var::Variable};
+use crate::{
+    mon::Monomial,
+    order::MonomialOrdering,
+    ring::{BoxedRing, Ring},
+    var::Variable,
+};
 use binary_heap_plus::{BinaryHeap, MaxComparator};
 use compare::Compare;
 use std::{
@@ -9,7 +14,7 @@ use std::{
 
 pub struct Polynomial<'a, T: MonomialOrdering> {
     mons: BTreeSet<Monomial<'a, T>>,
-    ring: &'a Ring<T>,
+    ring: &'a BoxedRing<T>,
 }
 
 impl<'a, T: MonomialOrdering> Clone for Polynomial<'a, T> {
@@ -21,33 +26,33 @@ impl<'a, T: MonomialOrdering> Clone for Polynomial<'a, T> {
     }
 }
 
-// impl<'a, T: MonomialOrdering> Default for Polynomial<'a, T> {
+// impl<'a, T: MonomialOrdering> Default for Polynomial< T> {
 //     fn default() -> Self {
 //         Self::new()
 //     }
 // }
 
 impl<'a, T: MonomialOrdering> Polynomial<'a, T> {
-    pub fn new(ring: &'a Ring<T>) -> Self {
+    pub fn new(ring: &'a BoxedRing<T>) -> Self {
         Polynomial::zero(ring)
     }
-    pub fn zero(ring: &'a Ring<T>) -> Self {
+    pub fn zero(ring: &'a BoxedRing<T>) -> Self {
         Polynomial {
             mons: BTreeSet::new(),
             ring,
         }
     }
-    pub fn one(ring: &'a Ring<T>) -> Self {
+    pub fn one(ring: &'a BoxedRing<T>) -> Self {
         let mut mons = BTreeSet::new();
         mons.insert(Monomial::one(ring));
-        Polynomial { mons, ring }
+        Polynomial { mons, ring: ring }
     }
 
-    pub fn ring(&self) -> &'a Ring<T> {
+    pub fn ring(&self) -> &'a BoxedRing<T> {
         self.ring
     }
 
-    pub fn lm(&self) -> &Monomial<T> {
+    pub fn lm(&self) -> &Monomial<'a, T> {
         let lt = self.mons.last();
         lt.map_or(&Monomial::Zero, |m| m)
     }
@@ -83,13 +88,13 @@ impl<'a, T: MonomialOrdering> Polynomial<'a, T> {
         // }
         // self.mons = just_mons;
     }
-    pub fn from_monomial(ring: &'a Ring<T>, m: Monomial<'a, T>) -> Self {
+    pub fn from_monomial(ring: &'a BoxedRing<T>, m: Monomial<'a, T>) -> Self {
         let mut pol = Self::new(ring);
         pol.mons.insert(m);
         pol
     }
 
-    pub fn from_variable(ring: &'a Ring<T>, v: &'a Variable) -> Self {
+    pub fn from_variable(ring: &'a BoxedRing<T>, v: &'a Variable) -> Self {
         let mut pol = Self::new(ring);
         pol.mons.insert(Monomial::from_variable(ring, v));
         pol
@@ -227,10 +232,12 @@ impl<'a, T: MonomialOrdering> Add<&Monomial<'a, T>> for &Polynomial<'a, T> {
 
 impl<'a, T: MonomialOrdering> AddAssign<&Monomial<'a, T>> for Polynomial<'a, T> {
     fn add_assign(&mut self, m: &'_ Monomial<'a, T>) {
-        if !self.mons.insert(m.clone()) {
-            self.mons.remove(m);
+        if !m.is_zero() {
+            if !self.mons.insert(m.clone()) {
+                self.mons.remove(m);
+            }
+            self.justify_lm();
         }
-        self.justify_lm();
     }
 }
 
@@ -252,9 +259,47 @@ impl<'a, T: MonomialOrdering> AddAssign<&Polynomial<'a, T>> for Polynomial<'a, T
 impl<'a, T: MonomialOrdering> AddAssign<u64> for Polynomial<'a, T> {
     fn add_assign(&mut self, rhs: u64) {
         if rhs % 2 == 1 {
-            self.mons.insert(Monomial::one(self.ring));
+            let one = Monomial::one(self.ring);
+            if self.mons.contains(&one) {
+                self.mons.remove(&one);
+            } else {
+                self.mons.insert(one);
+            }
         }
         self.justify_lm();
+    }
+}
+
+impl<'a, T: MonomialOrdering> Add<u64> for &Polynomial<'a, T> {
+    type Output = <Polynomial<'a, T> as Add<Polynomial<'a, T>>>::Output;
+    fn add(self, rhs: u64) -> Polynomial<'a, T> {
+        if rhs % 2 == 1 {
+            let one = Monomial::one(self.ring);
+            let mut res_pol = self.clone();
+            if res_pol.mons.contains(&one) {
+                res_pol.mons.remove(&one);
+            } else {
+                res_pol.mons.insert(one);
+            }
+            res_pol
+        } else {
+            self.clone()
+        }
+    }
+}
+
+impl<'a, T: MonomialOrdering> Add<u64> for Polynomial<'a, T> {
+    type Output = <Polynomial<'a, T> as Add<Polynomial<'a, T>>>::Output;
+    fn add(mut self, rhs: u64) -> Polynomial<'a, T> {
+        if rhs % 2 == 1 {
+            let one = Monomial::one(self.ring);
+            if self.mons.contains(&one) {
+                self.mons.remove(&one);
+            } else {
+                self.mons.insert(one);
+            }
+        }
+        self
     }
 }
 
@@ -303,7 +348,10 @@ impl<'a, T: MonomialOrdering> Mul<&Monomial<'a, T>> for Polynomial<'a, T> {
         } else {
             let mut new_pol = Polynomial::zero(self.ring);
             for m in self.mons.iter() {
-                new_pol.mons.insert(m * rhs);
+                let mon = m * rhs;
+                if !new_pol.mons.insert(mon.clone()) {
+                    new_pol.mons.remove(&mon);
+                }
             }
             new_pol.justify();
             new_pol
@@ -321,7 +369,10 @@ impl<'a, T: MonomialOrdering> Mul<&Monomial<'a, T>> for &Polynomial<'a, T> {
         } else {
             let mut new_pol = Polynomial::zero(self.ring);
             for m in self.mons.iter() {
-                new_pol.mons.insert(m * rhs);
+                let mon = m * rhs;
+                if !new_pol.mons.insert(mon.clone()) {
+                    new_pol.mons.remove(&mon);
+                }
             }
             new_pol.justify();
             new_pol
@@ -344,14 +395,19 @@ impl<'a, T: MonomialOrdering> Mul<Monomial<'a, T>> for &Polynomial<'a, T> {
 }
 
 mod tests {
-    use crate::{mon::Monomial, order::Lex, ring::Ring};
+    use crate::{
+        mon::Monomial,
+        order::Lex,
+        ring::{BoxedRing, Ring},
+    };
 
     use super::Polynomial;
     #[test]
     fn mul() {
         let ring = Ring::<Lex>::new(8);
-        let p1 = Polynomial::from_variable(&ring, ring.var(0));
-        let p2 = Polynomial::from_variable(&ring, ring.var(1));
+        let ring = &Box::new(ring);
+        let p1 = Polynomial::from_variable(ring, ring.var(0));
+        let p2 = Polynomial::from_variable(ring, ring.var(1));
         assert_eq!("x_0*x_1", (p1 * p2).to_string());
     }
 
@@ -359,9 +415,35 @@ mod tests {
     fn mul_mon() {
         let ordering = Lex;
         let ring = Ring::<Lex>::new(2);
-        let mut p1 = Polynomial::from_variable(&ring, ring.var(0));
-        p1 += Polynomial::from_monomial(&ring, Monomial::one(&ring));
-        let m: Monomial<_> = Monomial::from_variable(&ring, ring.var(1));
+        let ring = &Box::new(ring);
+        let mut p1 = Polynomial::from_variable(ring, ring.var(0));
+        p1 += Polynomial::from_monomial(ring, Monomial::one(ring));
+        let m: Monomial<_> = Monomial::from_variable(ring, ring.var(1));
         assert_eq!("x_0*x_1 + x_1", (p1 * m).to_string());
+    }
+
+    #[test]
+    fn mul_poly() {
+        let ring = Ring::<Lex>::new(8);
+        let ring = &Box::new(ring);
+        let p1 = Polynomial::from_variable(ring, ring.var(0));
+        let p2 = Polynomial::from_variable(ring, ring.var(1));
+        assert_eq!("x_0*x_1 + x_0 + x_1 + 1", ((p1 + 1) * (p2 + 1)).to_string());
+    }
+
+    #[test]
+    fn mul_poly2() {
+        let ring = Ring::<Lex>::new(8);
+        let ring = &Box::new(ring);
+        let p1 = Polynomial::from_variable(ring, ring.var(0))
+            + Polynomial::from_variable(ring, ring.var(1));
+        let p2 = Polynomial::from_variable(ring, ring.var(2))
+            + Polynomial::from_variable(ring, ring.var(3));
+        let p3 = Polynomial::from_variable(ring, ring.var(3))
+            + Polynomial::from_variable(ring, ring.var(5));
+        assert_eq!(
+            "x_0*x_2*x_3 + x_0*x_2*x_5 + x_0*x_3*x_5 + x_0*x_5 + x_1*x_2*x_3 + x_1*x_2*x_5 + x_1*x_3*x_5 + x_1*x_5 + x_2*x_3 + x_2*x_5 + x_3*x_5 + x_5",
+            ((p1 + 1) * (p2 + 1) * p3).to_string()
+        );
     }
 }

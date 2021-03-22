@@ -1,6 +1,6 @@
 use crate::mon::Monomial;
 use std::cmp::Ordering;
-pub trait MonomialOrdering: Clone + Copy {
+pub trait MonomialOrdering: Clone + Copy + Sync {
     fn cmp(a: &Monomial<Self>, b: &Monomial<Self>) -> Ordering;
 }
 
@@ -110,9 +110,9 @@ impl<'a> MonomialOrdering for Lex {
 
 mod tests {
     use super::{DegLex, DegRevLex, Lex, MonomialOrdering};
-    use crate::poly::Polynomial;
     use crate::{mon::Monomial, ring::Ring};
-    fn test_poly<'a, O: MonomialOrdering>(ring: &'a Ring<O>) -> Polynomial<'a, O> {
+    use crate::{poly::Polynomial, ring::BoxedRing};
+    fn test_poly<O: MonomialOrdering>(ring: &BoxedRing<O>) -> Polynomial<O> {
         let x: Vec<_> = (0..4)
             .map(|i| Polynomial::from_variable(ring, ring.var(i)))
             .collect();
@@ -132,7 +132,8 @@ mod tests {
     fn lex_order() {
         let ordering = Lex;
         let ring = Ring::<Lex>::new(4);
-        let p = test_poly(&ring);
+        let ring = &Box::new(ring);
+        let p = test_poly(ring);
         assert_eq!(
             "x_0*x_1*x_2 + x_0*x_2 + x_0 + x_1*x_2*x_3 + x_1*x_3 + x_2 + x_3",
             p.to_string()
@@ -142,7 +143,8 @@ mod tests {
     fn degrevlex_order() {
         let ordering = DegRevLex;
         let ring = Ring::<DegRevLex>::new(4);
-        let p = test_poly(&ring);
+        let ring = &Box::new(ring);
+        let p = test_poly(ring);
         assert_eq!(
             "x_2*x_1*x_0 + x_3*x_2*x_1 + x_2*x_0 + x_3*x_1 + x_0 + x_2 + x_3",
             p.to_string()
@@ -153,7 +155,8 @@ mod tests {
     fn deglex_order() {
         let ordering = DegLex;
         let ring = Ring::<DegLex>::new(4);
-        let p = test_poly(&ring);
+        let ring = &Box::new(ring);
+        let p = test_poly(ring);
         assert_eq!(
             "x_0*x_1*x_2 + x_1*x_2*x_3 + x_0*x_2 + x_1*x_3 + x_0 + x_2 + x_3",
             p.to_string()

@@ -1,4 +1,4 @@
-use crate::{order::MonomialOrdering, ring::Ring, var::Variable};
+use crate::{order::MonomialOrdering, ring::BoxedRing, var::Variable};
 use core::slice;
 use sorted_vec::SortedVec;
 use std::{
@@ -12,17 +12,28 @@ use std::{
 };
 
 pub const MAX_MONOMIAL_DEGREE: usize = 10;
-#[derive(Clone, Copy, Ord, Eq)]
+#[derive(Clone, Copy, Eq)]
 pub struct VariableOrder(u32);
-
+impl VariableOrder {
+    pub fn order(&self) -> usize {
+        self.0 as usize
+    }
+}
 impl Into<usize> for &VariableOrder {
     fn into(self) -> usize {
         self.0 as usize
     }
 }
+
 impl PartialOrd for VariableOrder {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.0.partial_cmp(&other.0)
+    }
+}
+
+impl Ord for VariableOrder {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.cmp(&other.0)
     }
 }
 
@@ -31,29 +42,47 @@ impl PartialEq for VariableOrder {
         self.0.eq(&other.0)
     }
 }
-#[derive(Clone)]
+
 pub enum Monomial<'a, T: MonomialOrdering> {
     NonZero {
-        ring: &'a Ring<T>,
+        ring: &'a BoxedRing<T>,
         vars: SortedVec<VariableOrder>,
     },
     Zero,
 }
-
-// impl<'a, T: MonomialOrdering> Default for Monomial<'a, T> {
+impl<'a, T: MonomialOrdering> Clone for Monomial<'a, T> {
+    fn clone(&self) -> Self {
+        match self {
+            Monomial::Zero => Monomial::Zero,
+            Monomial::NonZero { ring, vars } => Monomial::NonZero {
+                ring: ring,
+                vars: vars.clone(),
+            },
+        }
+    }
+}
+// impl<'a, T: MonomialOrdering> Default for Monomial< T> {
 //     fn default() -> Self {
 //         Self::one()
 //     }
 // }
 impl<'a, T: MonomialOrdering> Monomial<'a, T> {
-    pub fn one(ring: &'a Ring<T>) -> Self {
+    pub fn one(ring: &'a BoxedRing<T>) -> Self {
         Monomial::NonZero {
             vars: SortedVec::with_capacity(MAX_MONOMIAL_DEGREE),
             ring,
         }
     }
-    pub fn new(ring: &'a Ring<T>) -> Self {
+    pub fn new(ring: &'a BoxedRing<T>) -> Self {
         Monomial::one(ring)
+    }
+
+    pub fn ring(&self) -> Option<&'a BoxedRing<T>> {
+        if let Monomial::NonZero { ring, .. } = self {
+            Some(ring)
+        } else {
+            None
+        }
     }
     pub fn is_zero(&self) -> bool {
         !matches!(self, Monomial::NonZero { .. })
@@ -73,15 +102,15 @@ impl<'a, T: MonomialOrdering> Monomial<'a, T> {
             0
         }
     }
-    pub fn vars(&self) -> Option<Vec<&Variable>> {
+    pub fn vars(&self) -> Option<&[VariableOrder]> {
         if let Monomial::NonZero { vars, ring } = self {
-            Some(vars.iter().map(|v| ring.var(v.into())).collect())
+            Some(vars.as_slice())
         } else {
             None
         }
     }
 
-    pub fn from_variable(ring: &'a Ring<T>, v: &'a Variable) -> Monomial<'a, T> {
+    pub fn from_variable(ring: &'a BoxedRing<T>, v: &'a Variable) -> Monomial<'a, T> {
         let mut vars = SortedVec::with_capacity(MAX_MONOMIAL_DEGREE);
         vars.insert(VariableOrder(v.order()));
         Monomial::NonZero { vars, ring }
@@ -122,8 +151,8 @@ impl<'a, T: MonomialOrdering> Debug for Monomial<'a, T> {
     }
 }
 
-// impl<'a, T: MonomialOrdering> From<&'a Variable> for Monomial<'a, T> {
-//     fn from(v: &'a Variable) -> Monomial<'a, T> {
+// impl<'a, T: MonomialOrdering> From<&'a Variable> for Monomial< T> {
+//     fn from(v: &'a Variable) -> Monomial< T> {
 //         let mut vars = SortedVec::with_capacity(MAX_MONOMIAL_DEGREE);
 //         vars.insert(VariableOrder(v.order()));
 //         Monomial::NonZero { vars, ring }
@@ -212,7 +241,7 @@ impl<'a, 'b, T: MonomialOrdering> Mul<&'b Monomial<'a, T>> for &Monomial<'a, T> 
                     }
                     Monomial::NonZero {
                         vars: vars_res,
-                        ring,
+                        ring: ring,
                     }
                 } else {
                     panic!("Invalid State in Mul")
@@ -246,7 +275,7 @@ impl<'a, 'b, T: MonomialOrdering> Mul<&'a Variable> for &Monomial<'a, T> {
             vars_res.find_or_insert(VariableOrder(rhs.order()));
             Monomial::NonZero {
                 vars: vars_res,
-                ring,
+                ring: ring,
             }
         } else {
             Monomial::Zero
@@ -273,7 +302,7 @@ impl<'a, T: MonomialOrdering> Ord for Monomial<'a, T> {
     }
 }
 
-// impl<'a, T: MonomialOrdering> PartialEq for Monomial<'a, T> {
+// impl<'a, T: MonomialOrdering> PartialEq for Monomial< T> {
 //     fn eq(&self, other: &Self) -> bool {
 //         self.order == other.order
 //     }

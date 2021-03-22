@@ -1,7 +1,9 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, rc::Rc};
 
 use crate::var::Variable;
 use crate::{order::MonomialOrdering, var::AssociatedVariableType};
+
+pub type BoxedRing<T> = Box<Ring<T>>;
 pub struct Ring<T: MonomialOrdering> {
     vars: Vec<Variable>,
     order: PhantomData<T>,
@@ -30,7 +32,7 @@ impl<T: MonomialOrdering> Ring<T> {
         &self.vars[n]
     }
 
-    pub fn len(&self) ->usize{
+    pub fn gens(&self) -> usize {
         self.vars.len()
     }
 }
