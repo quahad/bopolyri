@@ -109,9 +109,12 @@ impl<'a> MonomialOrdering for Lex {
 }
 
 mod tests {
-    use super::{DegLex, DegRevLex, Lex, MonomialOrdering};
-    use crate::{mon::Monomial, ring::Ring};
-    use crate::{poly::Polynomial, ring::BoxedRing};
+    use super::MonomialOrdering;
+    use crate::{
+        order::{DegLex, DegRevLex, Lex},
+        poly::Polynomial,
+        ring::{BoxedRing, Ring},
+    };
     fn test_poly<O: MonomialOrdering>(ring: &BoxedRing<O>) -> Polynomial<O> {
         let x: Vec<_> = (0..4)
             .map(|i| Polynomial::from_variable(ring, ring.var(i)))

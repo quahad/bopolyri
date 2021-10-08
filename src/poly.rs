@@ -1,11 +1,4 @@
-use crate::{
-    mon::Monomial,
-    order::MonomialOrdering,
-    ring::{BoxedRing, Ring},
-    var::Variable,
-};
-use binary_heap_plus::{BinaryHeap, MaxComparator};
-use compare::Compare;
+use crate::{mon::Monomial, order::MonomialOrdering, ring::BoxedRing, var::Variable};
 use std::{
     collections::BTreeSet,
     fmt::Display,
@@ -45,7 +38,7 @@ impl<'a, T: MonomialOrdering> Polynomial<'a, T> {
     pub fn one(ring: &'a BoxedRing<T>) -> Self {
         let mut mons = BTreeSet::new();
         mons.insert(Monomial::one(ring));
-        Polynomial { mons, ring: ring }
+        Polynomial { mons, ring }
     }
 
     pub fn ring(&self) -> &'a BoxedRing<T> {
@@ -395,13 +388,7 @@ impl<'a, T: MonomialOrdering> Mul<Monomial<'a, T>> for &Polynomial<'a, T> {
 }
 
 mod tests {
-    use crate::{
-        mon::Monomial,
-        order::Lex,
-        ring::{BoxedRing, Ring},
-    };
-
-    use super::Polynomial;
+    use crate::{mon::Monomial, order::Lex, poly::Polynomial, ring::Ring};
     #[test]
     fn mul() {
         let ring = Ring::<Lex>::new(8);

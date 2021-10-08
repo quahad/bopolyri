@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, rc::Rc};
+use std::{marker::PhantomData};
 
 use crate::var::Variable;
 use crate::{order::MonomialOrdering, var::AssociatedVariableType};

@@ -1,13 +1,10 @@
 use crate::{order::MonomialOrdering, ring::BoxedRing, var::Variable};
-use core::slice;
 use sorted_vec::SortedVec;
 use std::{
     cmp::Ordering,
     cmp::PartialOrd,
     fmt::{self, Debug, Display},
-    marker::PhantomData,
-    ops::{Add, AddAssign, Mul, MulAssign},
-    process::Output,
+    ops::{Mul, MulAssign},
     usize,
 };
 
@@ -55,7 +52,7 @@ impl<'a, T: MonomialOrdering> Clone for Monomial<'a, T> {
         match self {
             Monomial::Zero => Monomial::Zero,
             Monomial::NonZero { ring, vars } => Monomial::NonZero {
-                ring: ring,
+                ring,
                 vars: vars.clone(),
             },
         }
@@ -103,7 +100,7 @@ impl<'a, T: MonomialOrdering> Monomial<'a, T> {
         }
     }
     pub fn vars(&self) -> Option<&[VariableOrder]> {
-        if let Monomial::NonZero { vars, ring } = self {
+        if let Monomial::NonZero { vars, .. } = self {
             Some(vars.as_slice())
         } else {
             None
@@ -187,12 +184,9 @@ impl<'a, T: MonomialOrdering> Mul for Monomial<'a, T> {
                 ) = (self, rhs)
                 {
                     for v in vars_b.into_vec() {
-                        vars_a.find_or_insert(v);
+                        let _ = vars_a.find_or_insert(v);
                     }
-                    Monomial::NonZero {
-                        vars: vars_a,
-                        ring: ring,
-                    }
+                    Monomial::NonZero { vars: vars_a, ring }
                 } else {
                     panic!("Invalid State in Mul")
                 }
@@ -213,7 +207,7 @@ impl<'a, 'b, T: MonomialOrdering> MulAssign<&'b Monomial<'a, T>> for Monomial<'a
                 ) = (self, rhs)
                 {
                     for v in vars_b.iter() {
-                        vars_a.find_or_insert(*v);
+                        let _ = vars_a.find_or_insert(*v);
                     }
                 } else {
                     panic!("Invalid State in Mul")
@@ -237,11 +231,11 @@ impl<'a, 'b, T: MonomialOrdering> Mul<&'b Monomial<'a, T>> for &Monomial<'a, T> 
                 {
                     let mut vars_res = vars_a.clone();
                     for v in vars_b.iter() {
-                        vars_res.find_or_insert(*v);
+                        let _ = vars_res.find_or_insert(*v);
                     }
                     Monomial::NonZero {
                         vars: vars_res,
-                        ring: ring,
+                        ring,
                     }
                 } else {
                     panic!("Invalid State in Mul")
@@ -254,13 +248,14 @@ impl<'a, 'b, T: MonomialOrdering> Mul<&'b Monomial<'a, T>> for &Monomial<'a, T> 
 impl<'a, 'b, T: MonomialOrdering> Mul<&'a Variable> for Monomial<'a, T> {
     type Output = <Monomial<'a, T> as Mul<Monomial<'a, T>>>::Output;
     fn mul(self, rhs: &'a Variable) -> Monomial<'a, T> {
-        if let Monomial::NonZero { vars: vars_a, ring } = self {
-            let mut vars_res = vars_a.clone();
-            vars_res.find_or_insert(VariableOrder(rhs.order()));
-            Monomial::NonZero {
-                vars: vars_res,
-                ring,
-            }
+        if let Monomial::NonZero {
+            vars: mut vars_a,
+            ring,
+        } = self
+        {
+            //let mut vars_res = vars_a.clone();
+            let _ = vars_a.find_or_insert(VariableOrder(rhs.order()));
+            Monomial::NonZero { vars: vars_a, ring }
         } else {
             Monomial::Zero
         }
@@ -272,10 +267,10 @@ impl<'a, 'b, T: MonomialOrdering> Mul<&'a Variable> for &Monomial<'a, T> {
     fn mul(self, rhs: &'a Variable) -> Monomial<'a, T> {
         if let Monomial::NonZero { vars: vars_a, ring } = self {
             let mut vars_res = vars_a.clone();
-            vars_res.find_or_insert(VariableOrder(rhs.order()));
+            let _ = vars_res.find_or_insert(VariableOrder(rhs.order()));
             Monomial::NonZero {
                 vars: vars_res,
-                ring: ring,
+                ring,
             }
         } else {
             Monomial::Zero
